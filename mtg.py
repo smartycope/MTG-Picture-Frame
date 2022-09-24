@@ -9,17 +9,24 @@ from PyQt5.QtGui import QCursor, QStandardItem, QStandardItemModel, QPixmap, QIm
 from PyQt5.QtWidgets import (QAbstractItemView, QApplication, QHeaderView, QDesktopWidget,
                              QLabel, QLineEdit, QTableView, QTableWidgetItem,
                              QVBoxLayout, QWidget)
-from scryfall_wrapper import *
+# from scryfall_wrapper import *
+# from scrython import *
+import scrython as mtg
+# C
 
 debugging = False
 shiftAround = False
+RANDOM = True
 
 # Must have at least 2 cards to switch between
 cards = [
-    Card("Filigree Familiar"),
-    Card('Sol Ring'),
+    # Card("Filigree Familiar"),
+    # Card('Sol Ring'),
+    mtg.cards.Named(fuzzy="Filigree Familiar"),
+    mtg.cards.Named(fuzzy='Sol Ring'),
 ]
-# cards = Card_Set('aer').cards()
+# cards = mtg.Code('aer')
+
 # small, normal, large, png, art_crop, border_crop
 artType = 'border_crop'
 # min: 10, max: 60
@@ -54,18 +61,20 @@ class MainWindow(QWidget):
         self.setWindowState(Qt.WindowState.WindowFullScreen)
 
         # Convert all the cards into labels
-        self.labels = set()
-        self._useless = []
-        for card in cards:
-            url = card.image_uris[artType]
-            stuff = requests.get(url).content
-            # self._useless.append(ImageQt.ImageQt(Image.open(BytesIO(stuff)).resize((screen.size().width(), screen.size().height()))))
-            # img = QImage(self._useless[-1])
-            # img = QImage(self._useless[-1])
-            label = QLabel(parent=self)
-            label.setPixmap(pil2pixmap(Image.open(BytesIO(stuff)).resize((screen.size().width(), screen.size().height()))))
-            label.hide()
-            self.labels.add(label)
+        self.currentCard = None
+        if not RANDOM:
+            self.labels = set()
+            # self._useless = []
+            for card in cards:
+                url = card.image_uris()[artType]
+                stuff = requests.get(url).content
+                # self._useless.append(ImageQt.ImageQt(Image.open(BytesIO(stuff)).resize((screen.size().width(), screen.size().height()))))
+                # img = QImage(self._useless[-1])
+                # img = QImage(self._useless[-1])
+                label = QLabel(parent=self)
+                label.setPixmap(pil2pixmap(Image.open(BytesIO(stuff)).resize((screen.size().width(), screen.size().height()))))
+                label.hide()
+                self.labels.add(label)
 
         # Now disperse them randomly
         # for label in self.labels:
@@ -73,7 +82,6 @@ class MainWindow(QWidget):
 
         # Start the process
         # self.currentCard.show()
-        self.currentCard = choice(list(self.labels))
         self.timer = QTimer(self)
         self.timer.setInterval(randint(*timeRangeMS))
         self.timer.setSingleShot(False)
@@ -84,12 +92,22 @@ class MainWindow(QWidget):
     def nextCard(self):
         if debugging:
             print('switching cards')
-        self.hideCard(self.currentCard)
-        self.currentCard = choice(list(self.labels.difference([self.currentCard])))
-        if shiftAround:
-            self.currentCard.move(randint(0, self.width()-self.currentCard.width()), randint(0, self.height()-self.currentCard.height()))
+
+        if self.currentCard is not None:
+            self.hideCard(self.currentCard)
+
+        if RANDOM:
+            url = mtg.cards.Random().image_uris()[artType]
+            stuff = requests.get(url).content
+            self.currentCard = QLabel(parent=self)
+            self.currentCard.setPixmap(pil2pixmap(Image.open(BytesIO(stuff)).resize((screen.size().width(), screen.size().height()))))
+        else:
+            self.currentCard = choice(list(self.labels.difference([self.currentCard])))
+            if shiftAround:
+                self.currentCard.move(randint(0, self.width()-self.currentCard.width()), randint(0, self.height()-self.currentCard.height()))
+            self.timer.setInterval(randint(*timeRangeMS))
+
         self.showCard(self.currentCard)
-        self.timer.setInterval(randint(*timeRangeMS))
 
     def showCard(self, card):
         card.show()
